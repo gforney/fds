@@ -476,11 +476,19 @@ fi
 #*** wait until number of jobs running already by user is less than USERMAX
 
 if [ "$USERMAX" != "" ]; then
-  nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
+  if [ "$JOBPREFIX" != "" ]; then
+    nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | grep $JOBPREFIX | wc -l`
+  else
+    nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
+  fi
   while [ $nuser -gt $USERMAX ]
   do
-    nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
-    sleep 10
+    if [ "$JOBPREFIX" != "" ]; then
+      nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | grep $JOBPREFIX | wc -l`
+    else
+      nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
+    fi
+    sleep 1
   done
 fi
 

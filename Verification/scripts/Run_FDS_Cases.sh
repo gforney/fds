@@ -175,7 +175,11 @@ fi
 if [ "$CHECKCASES" == "1" ]; then
   QFDS="$(pwd)/Check_FDS_Cases.sh"
 else
-  QFDS="$QFDSSH $INTEL2 $QUEUE $DEBUG $FDSEXEC"
+  UOPT=
+  if [ "$MAX_USER_CASES" != "" ]; then
+    UOPT="-U $MAX_USER_CASES"
+  fi
+  QFDS="$QFDSSH $UOPT $INTEL2 $QUEUE $DEBUG $FDSEXEC"
 fi
 export QFDS
 
