@@ -477,18 +477,18 @@ fi
 
 if [ "$USERMAX" != "" ]; then
   if [ "$JOBPREFIX" != "" ]; then
-    nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | grep $JOBPREFIX | wc -l`
+    nuser=`squeue | grep -v JOBID | grep $JOBPREFIX | awk '{print $4}' | grep $USER | wc -l`
   else
     nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
   fi
   while [ $nuser -gt $USERMAX ]
   do
     if [ "$JOBPREFIX" != "" ]; then
-      nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | grep $JOBPREFIX | wc -l`
+      nuser=`squeue | grep -v JOBID | grep $JOBPREFIX | awk '{print $4}' | grep $USER | wc -l`
     else
       nuser=`squeue | grep -v JOBID | awk '{print $4}' | grep $USER | wc -l`
     fi
-    sleep 1
+    sleep 10
   done
 fi
 
