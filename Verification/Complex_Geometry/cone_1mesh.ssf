@@ -25,7 +25,7 @@ LABEL
   Some cut-cells on cone
 
 LOADINIFILE
- cone_1mesh_a.ini
+ cone_1mesh_b.ini
 UNLOADALL
 LOADSLICEM
  Cut Cells
