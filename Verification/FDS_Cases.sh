@@ -59,6 +59,25 @@ $QFDS -p 6  -d Chemistry load_bal_propane_2step_arrhenius_parallel.fds
 $QFDS -p 6  -d Chemistry load_bal_methane_2step_fast_serial.fds
 $QFDS -p 6  -d Chemistry load_bal_methane_2step_fast_parallel.fds
 
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_Zeta1p0.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_Zeta0p75.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_Zeta0p5.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_Zeta0p25.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_Zeta0p0.fds
+$QFDS -d Chemistry EDC_MultiCFDStep_Methane_grimech30_Zeta1p0.fds
+$QFDS -d Chemistry EDC_MultiCFDStep_Methane_grimech30_Zeta0p75.fds
+$QFDS -d Chemistry EDC_MultiCFDStep_Methane_grimech30_Zeta0p5.fds
+$QFDS -d Chemistry EDC_MultiCFDStep_Methane_grimech30_Zeta0p25.fds
+$QFDS -d Chemistry EDC_MultiCFDStep_Methane_grimech30_Zeta0p0.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p1.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p01.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p001.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p0001.fds
+$QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p00001.fds
+
+$QFDS -p 24 -d Chemistry EDC_load_bal_methane_smooke_serial.fds
+$QFDS -p 24 -d Chemistry EDC_load_bal_methane_smooke_parallel.fds
+
 $QFDS -d Complex_Geometry geom_channel.fds
 $QFDS -d Complex_Geometry geom_channel2.fds
 $QFDS -d Complex_Geometry geom_channel_tmp.fds
@@ -167,6 +186,11 @@ $QFDS -d Controls rms_cov_corr.fds
 $QFDS -d Controls rms_example.fds
 $QFDS -d Controls special_time_ramps.fds
 $QFDS -p 4 -d Controls spreading_fire.fds
+# if [ "$QUEUE" == "" ]; then
+#     QUEUE='batch'
+# fi
+# sbatch --partition=$QUEUE $FIREMODELS/fds/Verification/Controls/ext_heartbeat_std_curve_slurm.sh
+# $QFDS -d Controls ext_heartbeat_std_curve.fds
 
 $QFDS -d Detectors aspiration_detector.fds
 $QFDS -p 8 -d Detectors beam_detector.fds
