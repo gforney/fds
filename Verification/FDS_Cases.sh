@@ -1,5 +1,11 @@
 #!/bin/bash
 
+$QFDS -p 4 -d Fires couch.fds
+$QFDS -p 3 -d Radiation radiation_gas_panel.fds
+$QFDS -p 4 -d Pressure_Solver stairwell.fds
+$QFDS -p 8 -d Pressure_Solver tunnel_demo_glmat.fds
+$QFDS -d Scalar_Analytical_Solution shunn3_512.fds
+
 $QFDS -p 4 -d Adaptive_Mesh_Refinement random_meshes.fds
 # $QFDS -p 2 -d Adaptive_Mesh_Refinement ns2d_16_emb_1to1_refinement.fds
 # $QFDS -p 2 -d Adaptive_Mesh_Refinement ns2d_16_emb_1to2_refinement.fds
@@ -227,7 +233,7 @@ $QFDS -p 4 -d Fires box_burn_away10.fds
 $QFDS -p 4 -d Fires box_burn_away11.fds
 $QFDS -d Fires box_burn_away_2D.fds
 $QFDS -d Fires box_burn_away_2D_residue.fds
-$QFDS -p 4 -d Fires couch.fds
+#$QFDS -p 4 -d Fires couch.fds
 $QFDS -d Fires fire_const_gamma.fds
 $QFDS -d Fires spray_burner.fds
 $QFDS -d Fires HoC_Ideal.fds
@@ -443,13 +449,13 @@ $QFDS -p 8 -d Pressure_Solver duct_flow_uglmat.fds
 $QFDS -p 8 -d Pressure_Solver duct_flow_uglmat_hypre.fds
 $QFDS -p 5 -d Pressure_Solver hallways.fds
 $QFDS -p 8 -d Pressure_Solver tunnel_demo.fds
-$QFDS -p 8 -d Pressure_Solver tunnel_demo_glmat.fds
+#$QFDS -p 8 -d Pressure_Solver tunnel_demo_glmat.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration2d_default.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration2d_uglmat.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration3d_default.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration3d_uglmat.fds
 $QFDS -p 16 -d Pressure_Solver random_obstructions_fft.fds
-$QFDS -p 4 -d Pressure_Solver stairwell.fds
+#$QFDS -p 4 -d Pressure_Solver stairwell.fds
 $QFDS -p 2 -d Pressure_Solver ulmat_2zone.fds
 $QFDS -p 4 -d Pressure_Solver obst_activation_default.fds
 $QFDS -p 4 -d Pressure_Solver obst_activation_ulmat.fds
@@ -576,7 +582,7 @@ $QFDS -d Radiation radiation_box__20__100.fds
 $QFDS -d Radiation radiation_box__20_2000.fds
 $QFDS -d Radiation radiation_box__20__300.fds
 $QFDS -d Radiation radiation_box__20___50.fds
-$QFDS -p 3 -d Radiation radiation_gas_panel.fds
+#$QFDS -p 3 -d Radiation radiation_gas_panel.fds
 $QFDS -d Radiation radiation_plane_layer_1_1.fds
 $QFDS -d Radiation radiation_plane_layer_1_2.fds
 $QFDS -d Radiation radiation_plane_layer_1_3.fds
@@ -778,7 +784,7 @@ $QFDS -d Scalar_Analytical_Solution shunn3_32.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_64.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_128.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256.fds
-$QFDS -d Scalar_Analytical_Solution shunn3_512.fds
+#$QFDS -d Scalar_Analytical_Solution shunn3_512.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_1.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_p5.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_p25.fds
