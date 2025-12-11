@@ -1,15 +1,17 @@
 #!/bin/bash
 
-$QFDS -p 4 -d Fires couch.fds
-$QFDS -p 3 -d Radiation radiation_gas_panel.fds
-$QFDS -p 4 -d Pressure_Solver stairwell.fds
-$QFDS -p 8 -d Pressure_Solver tunnel_demo_glmat.fds
-$QFDS -d Scalar_Analytical_Solution shunn3_512.fds
-$QFDS -p 5 -d Flowfields simple_duct.fds
-$QFDS -p 24 -d Chemistry EDC_load_bal_methane_smooke_serial.fds
-$QFDS -d Sprinklers_and_Sprays sphere_drag_1.fds
-$QFDS -d Flowfields velocity_bc_test.fds
-$QFDS -d NS_Analytical_Solution vort2d_320.fds
+# run some slow cases first
+$QFDS -p 4  -d Fires                      couch.fds
+$QFDS -p 3  -d Radiation                  radiation_gas_panel.fds
+$QFDS -p 4  -d Pressure_Solver            stairwell.fds
+$QFDS -p 8  -d Pressure_Solver            tunnel_demo_glmat.fds
+$QFDS       -d Scalar_Analytical_Solution shunn3_512.fds
+$QFDS -p 5  -d Flowfields                 simple_duct.fds
+$QFDS -p 24 -d Chemistry                  EDC_load_bal_methane_smooke_serial.fds
+$QFDS       -d Sprinklers_and_Sprays      sphere_drag_1.fds
+$QFDS       -d Flowfields                 velocity_bc_test.fds
+$QFDS       -d NS_Analytical_Solution     vort2d_320.fds
+$QFDS       -d Pressure_Effects           pressure_boundary.fds
 
 $QFDS -p 4 -d Adaptive_Mesh_Refinement random_meshes.fds
 # $QFDS -p 2 -d Adaptive_Mesh_Refinement ns2d_16_emb_1to1_refinement.fds
@@ -86,7 +88,6 @@ $QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p001.fds
 $QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p0001.fds
 $QFDS -d Chemistry EDC_OneCFDStep_Methane_grimech30_taumix0p00001.fds
 
-#$QFDS -p 24 -d Chemistry EDC_load_bal_methane_smooke_serial.fds
 $QFDS -p 24 -d Chemistry EDC_load_bal_methane_smooke_parallel.fds
 
 $QFDS -d Complex_Geometry geom_channel.fds
@@ -238,7 +239,6 @@ $QFDS -p 4 -d Fires box_burn_away10.fds
 $QFDS -p 4 -d Fires box_burn_away11.fds
 $QFDS -d Fires box_burn_away_2D.fds
 $QFDS -d Fires box_burn_away_2D_residue.fds
-#$QFDS -p 4 -d Fires couch.fds
 $QFDS -d Fires fire_const_gamma.fds
 $QFDS -d Fires spray_burner.fds
 $QFDS -d Fires HoC_Ideal.fds
@@ -268,7 +268,6 @@ $QFDS -d Flowfields jet_fan.fds
 $QFDS -d Flowfields symmetry_test.fds
 $QFDS -d Flowfields symmetry_test_2.fds
 $QFDS -d Flowfields tangential_velocity.fds
-#$QFDS -d Flowfields velocity_bc_test.fds
 $QFDS -d Flowfields blasius_16.fds
 $QFDS -d Flowfields blasius_32.fds
 $QFDS -d Flowfields blasius_64.fds
@@ -286,7 +285,6 @@ $QFDS -d Flowfields species_conservation_4.fds
 $QFDS -d Flowfields hot_layer_360.fds
 $QFDS -d Flowfields realizable_mass_fractions.fds
 $QFDS -p 4 -d Flowfields parabolic_profile.fds
-#$QFDS -p 5 -d Flowfields simple_duct.fds
 $QFDS -p 8 -d Flowfields symmetry_test_mpi.fds
 $QFDS -p 8 -d Flowfields volume_flow_1.fds
 $QFDS -p 8 -d Flowfields volume_flow_2.fds
@@ -420,11 +418,9 @@ $QFDS -d NS_Analytical_Solution ns2d_8_nupt1.fds
 $QFDS -d NS_Analytical_Solution vort2d_40.fds
 $QFDS -d NS_Analytical_Solution vort2d_80.fds
 $QFDS -d NS_Analytical_Solution vort2d_160.fds
-#$QFDS -d NS_Analytical_Solution vort2d_320.fds
 
 $QFDS -d Pressure_Effects isentropic.fds
 $QFDS -d Pressure_Effects isentropic2.fds
-$QFDS -d Pressure_Effects pressure_boundary.fds
 $QFDS -d Pressure_Effects pressure_rise.fds
 $QFDS -p 8 -d Pressure_Effects thick_orifice_5cm.fds
 $QFDS -d Pressure_Effects zone_break_fast.fds
@@ -454,13 +450,11 @@ $QFDS -p 8 -d Pressure_Solver duct_flow_uglmat.fds
 $QFDS -p 8 -d Pressure_Solver duct_flow_uglmat_hypre.fds
 $QFDS -p 5 -d Pressure_Solver hallways.fds
 $QFDS -p 8 -d Pressure_Solver tunnel_demo.fds
-#$QFDS -p 8 -d Pressure_Solver tunnel_demo_glmat.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration2d_default.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration2d_uglmat.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration3d_default.fds
 $QFDS -p 8 -d Pressure_Solver pressure_iteration3d_uglmat.fds
 $QFDS -p 16 -d Pressure_Solver random_obstructions_fft.fds
-#$QFDS -p 4 -d Pressure_Solver stairwell.fds
 $QFDS -p 2 -d Pressure_Solver ulmat_2zone.fds
 $QFDS -p 4 -d Pressure_Solver obst_activation_default.fds
 $QFDS -p 4 -d Pressure_Solver obst_activation_ulmat.fds
@@ -587,7 +581,6 @@ $QFDS -d Radiation radiation_box__20__100.fds
 $QFDS -d Radiation radiation_box__20_2000.fds
 $QFDS -d Radiation radiation_box__20__300.fds
 $QFDS -d Radiation radiation_box__20___50.fds
-#$QFDS -p 3 -d Radiation radiation_gas_panel.fds
 $QFDS -d Radiation radiation_plane_layer_1_1.fds
 $QFDS -d Radiation radiation_plane_layer_1_2.fds
 $QFDS -d Radiation radiation_plane_layer_1_3.fds
@@ -732,7 +725,6 @@ $QFDS -d Sprinklers_and_Sprays particle_drag_U150_N1600.fds
 $QFDS -d Sprinklers_and_Sprays particle_flux.fds
 $QFDS -d Sprinklers_and_Sprays particle_heating_convection.fds
 $QFDS -d Sprinklers_and_Sprays particle_heating_radiation.fds
-#$QFDS -d Sprinklers_and_Sprays sphere_drag_1.fds
 $QFDS -d Sprinklers_and_Sprays sphere_drag_2.fds
 $QFDS -d Sprinklers_and_Sprays terminal_velocity_dt_1_0.fds
 $QFDS -d Sprinklers_and_Sprays terminal_velocity_dt_0_1.fds
@@ -789,7 +781,6 @@ $QFDS -d Scalar_Analytical_Solution shunn3_32.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_64.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_128.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256.fds
-#$QFDS -d Scalar_Analytical_Solution shunn3_512.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_1.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_p5.fds
 $QFDS -d Scalar_Analytical_Solution shunn3_256_cfl_p25.fds
