@@ -3,7 +3,7 @@
 # Usage (Linux and macOS):
 #    source ./setup_spyder_env.sh
 
-#set -e  # Exit immediately if a command exits with a non-zero status
+set -e  # Exit immediately if a command exits with a non-zero status
 
 BATCHMODE=false
 
