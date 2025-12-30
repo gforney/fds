@@ -2040,8 +2040,11 @@ def scatplot(saved_data, drange, **kwargs):
            print(f"[scatplot] Processing {Scatter_Plot_Title}")
 
         # Match dataplot entries
-        match_idx = [i for i, q in enumerate(Save_Quantity)
-                     if Scatter_Plot_Title.strip().lower() in str(q).lower()]
+        match_idx = [
+            i for i, q in enumerate(Save_Quantity)
+            if str(q).strip().lower() == Scatter_Plot_Title.strip().lower()
+        ]
+
         if not match_idx:
             print(f"[scatplot] No dataplot entries for {Scatter_Plot_Title}")
             continue
@@ -2181,13 +2184,53 @@ def scatplot(saved_data, drange, **kwargs):
             print(f"[scatplot] Skipping {Scatter_Plot_Title} (no valid data)")
             continue
 
-        # --- Compute statistics (MATLAB logic restored) ---
-        weight = np.ones_like(Measured_Values)
+        # --- Compute statistics (MATLAB bin-weighted logic) ---
+
+        n_pts = len(Measured_Values)
+        weight = np.ones(n_pts)
+
+        # MATLAB behavior: Weight_Data == 'yes' by default for validation
+        Weight_Data = True
+
+        if Weight_Data and n_pts > 0:
+            max_meas = np.max(Measured_Values)
+            bin_size = max_meas / 10.0
+
+            bin_weight = np.zeros(10)
+
+            # Compute bin weights (n_pts / points in bin)
+            for ib in range(10):
+                lo = ib * bin_size
+                hi = (ib + 1) * bin_size
+                idx = np.where((Measured_Values > lo) & (Measured_Values <= hi))[0]
+                if len(idx) > 0:
+                    bin_weight[ib] = n_pts / len(idx)
+                else:
+                    bin_weight[ib] = 0.0
+
+            # Assign weights to each point
+            for iv in range(n_pts):
+                for ib in range(10):
+                    lo = ib * bin_size
+                    hi = (ib + 1) * bin_size
+                    if Measured_Values[iv] > lo and Measured_Values[iv] <= hi:
+                        weight[iv] = bin_weight[ib]
+                        break
+
+        # Weighted log-means
         log_E_bar = np.sum(np.log(Measured_Values) * weight) / np.sum(weight)
         log_M_bar = np.sum(np.log(Predicted_Values) * weight) / np.sum(weight)
-        u2 = np.sum((((np.log(Predicted_Values) - np.log(Measured_Values))
-                      - (log_M_bar - log_E_bar)) ** 2) * weight) / (np.sum(weight) - 1)
+
+        # Weighted variance
+        denom = np.sum(weight) - 1
+        if denom > 0:
+            u2 = np.sum(((np.log(Predicted_Values) - np.log(Measured_Values)
+                          - (log_M_bar - log_E_bar)) ** 2) * weight) / denom
+        else:
+            u2 = 0.0
+
         u = np.sqrt(u2)
+
 
         # Restore MATLAB logic:
         # If no Sigma_E is supplied, experimental sigma = u/sqrt(2)
@@ -2591,8 +2634,12 @@ def statistics_histogram(Measured_Values, Predicted_Values,
     ix = np.arange(x_lim[0], x_lim[1], 1e-3)
     mu = np.mean(ln_M_E)
     sd = np.std(ln_M_E, ddof=0)
-    iy = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-(ix - mu) ** 2 / (2 * sd ** 2))
-    ax.plot(ix, iy * np.trapz(n, xcenters), 'k', linewidth=2)
+    if sd == 0:
+        # Degenerate distribution: all mass at mu
+        ax.axvline(mu, color='k', linewidth=2)
+    else:
+        iy = (1 / (sd * np.sqrt(2 * np.pi))) * np.exp(-(ix - mu) ** 2 / (2 * sd ** 2))
+        ax.plot(ix, iy * np.trapz(n, xcenters), 'k', linewidth=2)
 
     ax.set_xlim(x_lim)
     y0, y1 = ax.get_ylim()
