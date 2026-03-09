@@ -16,10 +16,8 @@ PUBLIC :: INIT_TURB_ARRAYS, VARDEN_DYNSMAG, &
           WALL_MODEL, COMPRESSION_WAVE, TENSOR_DIFFUSIVITY_MODEL, &
           SYNTHETIC_TURBULENCE, SYNTHETIC_EDDY_SETUP, TEST_FILTER, &
           TWOD_VORTEX_CERFACS, TWOD_VORTEX_UMD, TWOD_SOBOROT_UMD, &
-          LOGLAW_HEAT_FLUX_MODEL, &
           NS_ANALYTICAL_SOLUTION, NS_U_EXACT, NS_V_EXACT, NS_H_EXACT, SANDIA_DAT, SPECTRAL_OUTPUT, SANDIA_OUT, &
-          FILL_EDGES, NATURAL_CONVECTION_MODEL, FORCED_CONVECTION_MODEL, RAYLEIGH_HEAT_FLUX_MODEL, &
-          WALE_VISCOSITY, TAU_WALL_IJ, RAYLEIGH_MASS_FLUX_MODEL, FM_HEAT_FLUX_MODEL, TEST_FILTER_LOCAL
+          FILL_EDGES, WALE_VISCOSITY, TAU_WALL_IJ, TEST_FILTER_LOCAL, K_SGS_POPE
 
 
 CONTAINS
@@ -1286,332 +1284,12 @@ ENDIF
 END SUBROUTINE WALL_MODEL
 
 
-!> \brief Calculate the Nusselt number for natural/free convection
-!> \param NUSSELT Nusselt number
-!> \param RA Rayleigh number
-!> \param SF Pointer to SURFACE derived type variable
-!> \param IOR Index of the surface orientation
-!> \param DELTA_TMP Temperature difference between gas and surface (K)
-
-SUBROUTINE NATURAL_CONVECTION_MODEL(NUSSELT,RA,SF,IOR,DELTA_TMP)
-
-REAL(EB), INTENT(OUT) :: NUSSELT
-REAL(EB), INTENT(IN) :: RA,DELTA_TMP
-INTEGER, INTENT(IN) :: IOR
-TYPE(SURFACE_TYPE), POINTER, INTENT(IN) :: SF
-
-SELECT CASE(SF%GEOMETRY)
-   CASE (SURF_CARTESIAN)
-      SELECT CASE(ABS(IOR))
-         CASE(0:2)
-            NUSSELT = (0.825_EB + 0.324_EB*RA**ONSI)**2  ! Incropera and DeWitt, 7th edition, Eq. 9.26
-         CASE(3)
-            IF ((IOR==3.AND.DELTA_TMP<0._EB) .OR. (IOR==-3.AND.DELTA_TMP>=0._EB)) THEN
-               IF (RA<1.E7_EB) THEN
-                  NUSSELT = 0.54_EB*RA**0.25_EB  ! Incropera and DeWitt, 7th edition, Eq. 9.30
-               ELSE
-                  NUSSELT = 0.15_EB*RA**ONTH     ! Incropera and DeWitt, 7th edition, Eq. 9.31
-               ENDIF
-            ELSE
-               NUSSELT = 0.52_EB*RA**0.2     ! Incropera and DeWitt, 7th edition, Eq. 9.32
-            ENDIF
-      END SELECT
-   CASE (SURF_CYLINDRICAL,SURF_INNER_CYLINDRICAL)  ! Simplification of Eq. 9.34, Incropera and DeWitt, 7th edition
-      IF (SF%HORIZONTAL) THEN
-         NUSSELT = (0.6_EB + 0.321_EB*RA**ONSI)**2   ! Incropera and DeWitt, 7th edition, Eq. 9.34
-      ELSE
-         NUSSELT = (0.825_EB + 0.324_EB*RA**ONSI)**2 ! Incropera and DeWitt, 7th edition, Eq. 9.26
-      ENDIF
-   CASE (SURF_SPHERICAL)
-      NUSSELT = 2._EB + 0.454_EB*RA**0.25_EB  ! Incropera and DeWitt, 7th edition, Eq. 9.35
-END SELECT
-
-END SUBROUTINE NATURAL_CONVECTION_MODEL
-
-
-!> \brief Calculate the heat transfer coefficient for forced convection
-!> \param NUSSELT Nusselt number
-!> \param RE Reynolds number
-!> \param PR_ONTH_IN Prandtl number to the 1/3 power
-!> \param SURF_GEOMETRY_INDEX Indicator of the surface geometry
-!> \param NUSSELT_C0 Constant in Nusselt number correlation
-!> \param NUSSELT_C1 Constant in Nusselt number correlation
-!> \param NUSSELT_C2 Constant in Nusselt number correlation
-!> \param NUSSELT_M Exponent in Nusselt number correlation
-
-SUBROUTINE FORCED_CONVECTION_MODEL(NUSSELT,RE,PR_ONTH_IN,SURF_GEOMETRY_INDEX,NUSSELT_C0,NUSSELT_C1,NUSSELT_C2,NUSSELT_M)
-
-REAL(EB), INTENT(OUT) :: NUSSELT
-REAL(EB), INTENT(IN) :: RE,PR_ONTH_IN
-REAL(EB), INTENT(IN), OPTIONAL :: NUSSELT_C0,NUSSELT_C1,NUSSELT_C2,NUSSELT_M
-INTEGER, INTENT(IN) :: SURF_GEOMETRY_INDEX
-
-
-IF (PRESENT(NUSSELT_C0)) THEN ! User has defined a custom Nusselt correlation
-   NUSSELT = NUSSELT_C0+(NUSSELT_C1*RE**NUSSELT_M-NUSSELT_C2)*PR_ONTH_IN
-ELSE
-   SELECT CASE(SURF_GEOMETRY_INDEX)
-      CASE (SURF_CARTESIAN)
-         NUSSELT = 0.0296_EB*RE**0.8_EB*PR_ONTH_IN  ! Incropera and DeWitt, 7th, Eq. 7.36, Table 7.7
-      CASE (SURF_CYLINDRICAL,SURF_INNER_CYLINDRICAL)
-         ! Incropera and DeWitt, 7th, Eq. 7.52
-         IF (RE >= 40000._EB) THEN
-            NUSSELT = 0.027_EB*RE**0.805_EB*PR_ONTH_IN
-         ELSEIF (RE >= 4000._EB) THEN
-            NUSSELT = 0.193_EB*RE**0.618_EB*PR_ONTH_IN
-         ELSEIF (RE >= 40._EB) THEN
-            NUSSELT = 0.683_EB*RE**0.466_EB*PR_ONTH_IN
-         ELSEIF (RE >= 4._EB) THEN
-            NUSSELT = 0.911_EB*RE**0.385_EB*PR_ONTH_IN
-         ELSE
-            NUSSELT = 0.989_EB*RE**0.330_EB*PR_ONTH_IN
-         ENDIF
-      CASE (SURF_SPHERICAL)
-         NUSSELT = 2._EB + 0.6_EB*SQRT(RE)*PR_ONTH_IN  ! Incropera and DeWitt, 7th, Eq. 7.57
-   END SELECT
-ENDIF
-
-END SUBROUTINE FORCED_CONVECTION_MODEL
-
-
-SUBROUTINE RAYLEIGH_HEAT_FLUX_MODEL(H,Z_STAR,REGIME,DZ,TMP_W,TMP_G,K_G,RHO_G,CP_G,MU_G,VEL_G)
-
-!!!!! EXPERIMENTAL !!!!!
-
-! Rayleigh number scaling in nondimensional thermal wall units
-!
-! The formulation is based on the discussion of natural convection systems in
-! J.P. Holman, Heat Transfer, 10th Ed., McGraw-Hill, 2010, Sec. 7-4.
-
-REAL(EB), INTENT(OUT) :: H,Z_STAR
-REAL(EB), INTENT(IN) :: DZ,TMP_W,TMP_G,K_G,RHO_G,CP_G,MU_G,VEL_G
-REAL(EB) :: NUSSELT,Q,ZC,NU_G,ALPHA_G,PR_G,D_STAR_FORCED,D_STAR_NATURAL,THETA_NATURAL,THETA_FORCED,&
-            Q_OLD,ERROR,DTMP !,DTDN(3)
-INTEGER, INTENT(OUT) :: REGIME
-INTEGER :: ITER
-INTEGER, PARAMETER :: MAX_ITER=10,NATURAL=1,FORCED=2
-REAL(EB), PARAMETER :: EIGHT_NINETHS = 8._EB/9._EB
-
-REAL(EB), PARAMETER :: Z_L_NATURAL = 3.2_EB, Z_T_NATURAL=17._EB
-REAL(EB), PARAMETER :: C_L_NATURAL = Z_L_NATURAL**(-0.8_EB), C_T_NATURAL = C_L_NATURAL*Z_T_NATURAL**(0.8_EB-1._EB)
-
-REAL(EB), PARAMETER :: Z_L_FORCED = 8._EB, Z_T_FORCED = 80._EB
-REAL(EB), PARAMETER :: C_L_FORCED = Z_L_FORCED**(-2._EB/3._EB), C_T_FORCED = C_L_FORCED * Z_T_FORCED**(2._EB/3._EB-8._EB/9._EB)
-
-IF (ABS(TMP_W-TMP_G)<TWENTY_EPSILON_EB) THEN
-   H = 0._EB
-   Z_STAR = 0._EB
-   REGIME = 0
-   RETURN
-ENDIF
-
-ZC = 0.5_EB*DZ
-NU_G = MU_G/RHO_G
-ALPHA_G = K_G/(RHO_G*CP_G)
-PR_G = NU_G/ALPHA_G
-
-THETA_NATURAL = 0.5_EB*(TMP_W+TMP_G)*K_G*ALPHA_G*NU_G/(GRAV+TWENTY_EPSILON_EB)
-THETA_FORCED  =     ABS(TMP_W-TMP_G)*K_G*ALPHA_G/(VEL_G+TWENTY_EPSILON_EB)
-
-! ! needed if NATURAL
-! DTDN = (TMP_G-TMP_W)/ZC * NVEC
-! IF (DOT_PRODUCT(DTDN,GVEC) > -TWENTY_EPSILON_EB) THEN
-!    EXPON_TURB=1._EB
-! ELSE
-!    EXPON_TURB=0.8_EB
-! ENDIF
-
-! Step 1: assume a heat transfer coefficient
-
-H = K_G/ZC ! initial guess
-DTMP = ABS(TMP_W-TMP_G)
-Q = H*DTMP ! Q > 0. in this routine
-
-Q_LOOP: DO ITER=1,MAX_ITER
-
-   ! Step 2: compute new thermal diffusive length scale, delta*
-   D_STAR_NATURAL = (THETA_NATURAL/Q)**0.25_EB
-   D_STAR_FORCED  = SQRT(THETA_FORCED/Q)
-
-   REGIME=MINLOC((/D_STAR_NATURAL,D_STAR_FORCED/),DIM=1)
-
-   ! Set REGIME based on minimum delta*
-
-   REGIME_SELECT: SELECT CASE(REGIME)
-
-      CASE(NATURAL)
-
-         ! Step 3: compute new z* (thermal)
-         Z_STAR = ZC/D_STAR_NATURAL
-
-         ! Step 4: based on z*, choose scaling law
-         IF (Z_STAR<=Z_L_NATURAL) THEN
-            NUSSELT = 1._EB
-         ELSEIF (Z_STAR>Z_L_NATURAL .AND. Z_STAR<=Z_T_NATURAL) THEN
-            NUSSELT = C_L_NATURAL * Z_STAR**0.8_EB
-         ELSE
-            NUSSELT = C_T_NATURAL * Z_STAR !**EXPON_TURB
-         ENDIF
-
-      CASE(FORCED)
-
-         ! Step 3: compute new z* (thermal)
-         Z_STAR = ZC/D_STAR_FORCED
-
-         ! Step 4: based on z*, choose scaling law
-         IF (Z_STAR<=Z_L_FORCED) THEN
-            NUSSELT = 1._EB
-         ELSEIF (Z_STAR>Z_L_FORCED .AND. Z_STAR<=Z_T_FORCED) THEN
-            NUSSELT = C_L_FORCED * Z_STAR**TWTH
-         ELSE
-            NUSSELT = C_T_FORCED * Z_STAR**EIGHT_NINETHS
-         ENDIF
-
-   END SELECT REGIME_SELECT
-
-   ! Step 5: update heat transfer coefficient
-   H = NUSSELT*K_G/ZC
-   Q_OLD = Q
-   Q = H*DTMP
-
-   ERROR = ABS(Q-Q_OLD)/MAX(Q_OLD,TWENTY_EPSILON_EB)
-   IF (ERROR<0.001_EB) EXIT Q_LOOP
-
-ENDDO Q_LOOP
-
-END SUBROUTINE RAYLEIGH_HEAT_FLUX_MODEL
-
-
-SUBROUTINE RAYLEIGH_MASS_FLUX_MODEL(H_MASS,Z_STAR,DZ,B_NUMBER,D_FILM,RHO_FILM,MU_FILM)
-
-!!!!! EXPERIMENTAL !!!!!
-
-! Rayleigh number scaling in nondimensional mass transfer wall units
-!
-! The formulation is based on the discussion of natural convection systems in
-! J.P. Holman, Heat Transfer, 10th Ed., McGraw-Hill, 2010, Sec. 7-4.
-
-REAL(EB), INTENT(OUT) :: H_MASS,Z_STAR
-REAL(EB), INTENT(IN) :: DZ,B_NUMBER,D_FILM,RHO_FILM,MU_FILM
-REAL(EB) :: SHERWOOD,ZC,NU_FILM,D_STAR,MFLUX_OLD,ERROR,D_STAR_FAC,MFLUX
-INTEGER :: ITER
-INTEGER, PARAMETER :: MAX_ITER=10
-! C_L = Z_L**(-0.8_EB)
-! C_T = C_L*Z_T**(-0.2_EB)
-REAL(EB), PARAMETER :: Z_L = 3.2_EB, Z_T=17._EB
-REAL(EB), PARAMETER :: C_L = 3.2_EB**(-0.8_EB), C_T = C_L*17._EB**(-0.2_EB)
-
-IF (B_NUMBER<TWENTY_EPSILON_EB) THEN
-   MFLUX = 0._EB
-   RETURN
-ENDIF
-
-ZC = 0.5_EB*DZ
-NU_FILM = MU_FILM/RHO_FILM
-D_STAR_FAC = RHO_FILM*D_FILM**2*NU_FILM/GRAV
-
-! Step 1: assume a mass transfer coefficient
-
-H_MASS = D_FILM/ZC ! initial guess
-
-! Step 2: compute initial MFLUX
-
-MFLUX = RHO_FILM*H_MASS*LOG(1._EB + B_NUMBER)
-
-RAYLEIGH_LOOP: DO ITER=1,MAX_ITER
-
-   ! Step 3: compute new mass diffusive length scale, delta*, from modified Grashof number * Sc
-
-   D_STAR = (D_STAR_FAC/MFLUX)**0.25_EB
-
-   ! Step 4: compute new z* (mass)
-
-   Z_STAR = ZC/D_STAR ! Ra* = (z*)**4
-
-   ! Step 5: based on z*, choose Ra scaling law
-
-   IF (Z_STAR<=Z_L) THEN
-      SHERWOOD = 1._EB
-   ELSEIF (Z_STAR>Z_L .AND. Z_STAR<=Z_T) THEN
-      SHERWOOD = C_L * Z_STAR**0.8_EB
-   ELSE
-      SHERWOOD = C_T * Z_STAR
-   ENDIF
-
-   ! Step 6: update mass transfer coefficient
-
-   H_MASS = SHERWOOD*D_FILM/ZC
-   MFLUX_OLD = MFLUX
-   MFLUX = RHO_FILM*H_MASS*LOG(1._EB + B_NUMBER)
-
-   ERROR = ABS(MFLUX-MFLUX_OLD)/MAX(MFLUX_OLD,TWENTY_EPSILON_EB)
-
-   IF (ERROR<0.001_EB) EXIT RAYLEIGH_LOOP
-
-ENDDO RAYLEIGH_LOOP
-
-END SUBROUTINE RAYLEIGH_MASS_FLUX_MODEL
-
-
-SUBROUTINE LOGLAW_HEAT_FLUX_MODEL(H,YPLUS,U_TAU,K_G,RHO_G,CP_G,MU_G)
-
-! Kiyoung Moon, Yonsei University
-! Ezgi Oztekin, Technology and Manangement International
-
-REAL(EB), INTENT(OUT) :: H
-REAL(EB), INTENT(IN) :: YPLUS,U_TAU,K_G,RHO_G,CP_G,MU_G
-REAL(EB) :: PR_M,TPLUS,B_T
-REAL(EB), PARAMETER :: RKAPPA=1._EB/0.41_EB
-
-PR_M = CP_G*MU_G/K_G
-
-IF (YPLUS < Y_WERNER_WENGLE) THEN
-   TPLUS = PR_M*YPLUS
-ELSE
-   B_T = (3.85_EB*PR_M**ONTH-1.3_EB)**2 + 2.12_EB*LOG(PR_M) ! Kader, 1981
-   TPLUS = PR_T*RKAPPA*LOG(YPLUS)+B_T
-ENDIF
-
-H = RHO_G*U_TAU*CP_G/TPLUS
-
-END SUBROUTINE LOGLAW_HEAT_FLUX_MODEL
-
-
-SUBROUTINE FM_HEAT_FLUX_MODEL(H,DN,TMP_W,TMP_G,K_G,RHO_G,CP_G)
-
-! Reference:
-! N. Ren, Y. Wang. A convective heat transfer model for LES fire modeling.
-! Proc. Combustion Institute, 38 (2021) 4535-4542.
-
-REAL(EB), INTENT(OUT) :: H
-REAL(EB), INTENT(IN) :: DN,TMP_W,TMP_G,K_G,RHO_G,CP_G
-REAL(EB) :: DTDN,ALPHA_W,Q,DD,C_GRAD
-REAL(EB), PARAMETER :: C1=175._EB, C2=-800._EB, LR=0.0015_EB
-
-IF (ABS(TMP_W-TMP_G)<TWENTY_EPSILON_EB) THEN
-   H = 0._EB
-   RETURN
-ENDIF
-
-! Currently, this model only contains the gradient correction.
-! Blowing correction will be added later.
-
-DTDN  = 2._EB*(TMP_W-TMP_G)/DN
-ALPHA_W = K_G/(RHO_G*CP_G)
-DD = MAX(0._EB,DN-LR)
-C_GRAD = 1._EB + MAX(0._EB, C1*DD + C2*DD**2)
-Q = RHO_G*CP_G*ALPHA_W*C_GRAD*DTDN
-H = Q/(TMP_W-TMP_G)
-
-END SUBROUTINE FM_HEAT_FLUX_MODEL
-
-
 SUBROUTINE TENSOR_DIFFUSIVITY_MODEL(NM,OPT_N)
 
 INTEGER, INTENT(IN) :: NM
 INTEGER, INTENT(IN), OPTIONAL :: OPT_N
 INTEGER :: I,J,K,N
-REAL(EB) :: DZDX,DZDY,DZDZ,DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,DTDX,DTDY,DTDZ,RHOBAR
+REAL(EB) :: DZDX,DZDY,DZDZ,DUDX,DUDY,DUDZ,DVDX,DVDY,DVDZ,DWDX,DWDY,DWDZ,DTDX,DTDY,DTDZ,RHOBAR,DX2,DY2,DZ2,KX,KY,KZ
 REAL(EB), POINTER, DIMENSION(:,:,:,:) :: ZZP,RHO_D_DZDX,RHO_D_DZDY,RHO_D_DZDZ
 REAL(EB), POINTER, DIMENSION(:,:,:) :: RHOP,UU,VV,WW,KDTDX,KDTDY,KDTDZ
 REAL(EB), PARAMETER :: C_NL=0.083_EB ! C_NL=1/12, See Pope Exercise 13.28
@@ -1648,7 +1326,7 @@ SCALAR_FLUX_IF: IF (PRESENT(OPT_N)) THEN
          DO I=0,IBAR
             RHOBAR = 0.5_EB*(RHOP(I,J,K)+RHOP(I+1,J,K))
 
-            DUDX = (UU(I+1,J,K)-UU(MAX(0,I-1),J,K))/(DX(I)+DX(I+1))
+            DUDX = (UU(I+1,J,K)-UU(I-1,J,K))/(DX(I)+DX(I+1))
             DUDY = (UU(I,J+1,K)-UU(I,J-1,K))/(DYN(J-1)+DYN(J))
             DUDZ = (UU(I,J,K+1)-UU(I,J,K-1))/(DZN(K-1)+DZN(K))
 
@@ -1656,8 +1334,13 @@ SCALAR_FLUX_IF: IF (PRESENT(OPT_N)) THEN
             DZDY = 0.25_EB*RDY(J)*( ZZP(I,J+1,K,N) + ZZP(I+1,J+1,K,N) - ZZP(I,J-1,K,N) - ZZP(I+1,J-1,K,N) )
             DZDZ = 0.25_EB*RDZ(K)*( ZZP(I,J,K+1,N) + ZZP(I+1,J,K+1,N) - ZZP(I,J,K-1,N) - ZZP(I+1,J,K-1,N) )
 
-            RHO_D_DZDX(I,J,K,N) = RHO_D_DZDX(I,J,K,N) &
-                                + RHOBAR*C_NL*( DXN(I)**2*DZDX*DUDX + DY(J)**2*DZDY*DUDY + DZ(K)**2*DZDZ*DUDZ )
+            DX2 = DXN(I)**2
+            DY2 = DY(J)**2
+            DZ2 = DZ(K)**2
+
+            RHO_D_DZDX(I,J,K,N) = RHO_D_DZDX(I,J,K,N) + RHOBAR*C_NL*( DX2*DZDX*DUDX + DY2*DZDY*DUDY + DZ2*DZDZ*DUDZ )
+            KX = C_NL * ( ABS(DX2*DUDX) + ABS(DY2*DUDY) + ABS(DZ2*DUDZ) ) ! stability strength for this x-face (m^2/s)
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KX)
          ENDDO
       ENDDO
    ENDDO
@@ -1668,15 +1351,20 @@ SCALAR_FLUX_IF: IF (PRESENT(OPT_N)) THEN
             RHOBAR = 0.5_EB*(RHOP(I,J,K)+RHOP(I,J+1,K))
 
             DVDX = (VV(I+1,J,K)-VV(I-1,J,K))/(DXN(I-1)+DXN(I))
-            DVDY = (VV(I,J+1,K)-VV(I,MAX(0,J-1),K))/(DY(J)+DY(J+1))
+            DVDY = (VV(I,J+1,K)-VV(I,J-1,K))/(DY(J)+DY(J+1))
             DVDZ = (VV(I,J,K+1)-VV(I,J,K-1))/(DZN(K-1)+DZN(K))
 
             DZDX = 0.25_EB*RDX(I)*( ZZP(I+1,J,K,N) + ZZP(I+1,J+1,K,N) - ZZP(I-1,J,K,N) - ZZP(I-1,J+1,K,N) )
             DZDY = RDYN(J)*(ZZP(I,J+1,K,N)-ZZP(I,J,K,N))
             DZDZ = 0.25_EB*RDZ(K)*( ZZP(I,J,K+1,N) + ZZP(I,J+1,K+1,N) - ZZP(I,J,K-1,N) - ZZP(I,J+1,K-1,N) )
 
-            RHO_D_DZDY(I,J,K,N) = RHO_D_DZDY(I,J,K,N) &
-                                + RHOBAR*C_NL*( DX(I)**2*DZDX*DVDX + DY(J)**2*DZDY*DVDY + DZ(K)**2*DZDZ*DVDZ )
+            DX2 = DX(I)**2
+            DY2 = DYN(J)**2
+            DZ2 = DZ(K)**2
+
+            RHO_D_DZDY(I,J,K,N) = RHO_D_DZDY(I,J,K,N) + RHOBAR*C_NL*( DX2*DZDX*DVDX + DY2*DZDY*DVDY + DZ2*DZDZ*DVDZ )
+            KY = C_NL * ( ABS(DX2*DVDX) + ABS(DY2*DVDY) + ABS(DZ2*DVDZ) )
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KY)
          ENDDO
       ENDDO
    ENDDO
@@ -1688,14 +1376,19 @@ SCALAR_FLUX_IF: IF (PRESENT(OPT_N)) THEN
 
             DWDX = (WW(I+1,J,K)-WW(I-1,J,K))/(DXN(I-1)+DXN(I))
             DWDY = (WW(I,J+1,K)-WW(I,J-1,K))/(DYN(J-1)+DYN(J))
-            DWDZ = (WW(I,J,K+1)-WW(I,J,MAX(0,K-1)))/(DZ(K)+DZ(K+1))
+            DWDZ = (WW(I,J,K+1)-WW(I,J,K-1))/(DZ(K)+DZ(K+1))
 
             DZDX = 0.25_EB*RDX(I)*( ZZP(I+1,J,K,N) + ZZP(I+1,J,K+1,N) - ZZP(I-1,J,K,N) - ZZP(I-1,J,K+1,N) )
             DZDY = 0.25_EB*RDY(J)*( ZZP(I,J+1,K,N) + ZZP(I,J+1,K+1,N) - ZZP(I,J-1,K,N) - ZZP(I,J-1,K+1,N) )
             DZDZ = RDZN(K)*(ZZP(I,J,K+1,N)-ZZP(I,J,K,N))
 
-            RHO_D_DZDZ(I,J,K,N) = RHO_D_DZDZ(I,J,K,N) &
-                                + RHOBAR*C_NL*( DX(I)**2*DZDX*DWDX + DY(J)**2*DZDY*DWDY + DZ(K)**2*DZDZ*DWDZ )
+            DX2 = DX(I)**2
+            DY2 = DY(J)**2
+            DZ2 = DZN(K)**2
+
+            RHO_D_DZDZ(I,J,K,N) = RHO_D_DZDZ(I,J,K,N) + RHOBAR*C_NL*( DX2*DZDX*DWDX + DY2*DZDY*DWDY + DZ2*DZDZ*DWDZ )
+            KZ = C_NL * ( ABS(DX2*DWDX) + ABS(DY2*DWDY) + ABS(DZ2*DWDZ) )
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KZ)
          ENDDO
       ENDDO
    ENDDO
@@ -1722,8 +1415,7 @@ ELSE SCALAR_FLUX_IF
    DO K=1,KBAR
       DO J=1,JBAR
          DO I=0,IBAR
-
-            DUDX = (UU(I+1,J,K)-UU(MAX(0,I-1),J,K))/(DX(I)+DX(I+1))
+            DUDX = (UU(I+1,J,K)-UU(I-1,J,K))/(DX(I)+DX(I+1))
             DUDY = (UU(I,J+1,K)-UU(I,J-1,K))/(DYN(J-1)+DYN(J))
             DUDZ = (UU(I,J,K+1)-UU(I,J,K-1))/(DZN(K-1)+DZN(K))
 
@@ -1731,8 +1423,13 @@ ELSE SCALAR_FLUX_IF
             DTDY = 0.25_EB*RDY(J)*( TMP(I,J+1,K) + TMP(I+1,J+1,K) - TMP(I,J-1,K) - TMP(I+1,J-1,K) )
             DTDZ = 0.25_EB*RDZ(K)*( TMP(I,J,K+1) + TMP(I+1,J,K+1) - TMP(I,J,K-1) - TMP(I+1,J,K-1) )
 
-            KDTDX(I,J,K) = KDTDX(I,J,K) + C_NL*(DX(I)**2*DUDX*DTDX + DY(J)**2*DUDY*DTDY + DZ(K)**2*DUDZ*DTDZ)
+            DX2 = DXN(I)**2
+            DY2 = DY(J)**2
+            DZ2 = DZ(K)**2
 
+            KDTDX(I,J,K) = KDTDX(I,J,K) + C_NL*(DX2*DUDX*DTDX + DY2*DUDY*DTDY + DZ2*DUDZ*DTDZ)
+            KX = C_NL * ( ABS(DX2*DUDX) + ABS(DY2*DUDY) + ABS(DZ2*DUDZ) ) ! stability strength for this x-face (m^2/s)
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KX)
          ENDDO
       ENDDO
    ENDDO
@@ -1740,17 +1437,21 @@ ELSE SCALAR_FLUX_IF
    DO K=1,KBAR
       DO J=0,JBAR
          DO I=1,IBAR
-
             DVDX = (VV(I+1,J,K)-VV(I-1,J,K))/(DXN(I-1)+DXN(I))
-            DVDY = (VV(I,J+1,K)-VV(I,MAX(0,J-1),K))/(DY(J)+DY(J+1))
+            DVDY = (VV(I,J+1,K)-VV(I,J-1,K))/(DY(J)+DY(J+1))
             DVDZ = (VV(I,J,K+1)-VV(I,J,K-1))/(DZN(K-1)+DZN(K))
 
             DTDX = 0.25_EB*RDX(I)*( TMP(I+1,J,K) + TMP(I+1,J+1,K) - TMP(I-1,J,K) - TMP(I-1,J+1,K) )
             DTDY = RDYN(J)*(TMP(I,J+1,K)-TMP(I,J,K))
             DTDZ = 0.25_EB*RDZ(K)*( TMP(I,J,K+1) + TMP(I,J+1,K+1) - TMP(I,J,K-1) - TMP(I,J+1,K-1) )
 
-            KDTDY(I,J,K) = KDTDY(I,J,K) + C_NL*(DX(I)**2*DVDX*DTDX + DY(J)**2*DVDY*DTDY + DZ(K)**2*DVDZ*DTDZ)
+            DX2 = DX(I)**2
+            DY2 = DYN(J)**2
+            DZ2 = DZ(K)**2
 
+            KDTDY(I,J,K) = KDTDY(I,J,K) + C_NL*(DX2*DVDX*DTDX + DY2*DVDY*DTDY + DZ2*DVDZ*DTDZ)
+            KY = C_NL * ( ABS(DX2*DVDX) + ABS(DY2*DVDY) + ABS(DZ2*DVDZ) )
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KY)
          ENDDO
       ENDDO
    ENDDO
@@ -1761,14 +1462,19 @@ ELSE SCALAR_FLUX_IF
 
             DWDX = (WW(I+1,J,K)-WW(I-1,J,K))/(DXN(I-1)+DXN(I))
             DWDY = (WW(I,J+1,K)-WW(I,J-1,K))/(DYN(J-1)+DYN(J))
-            DWDZ = (WW(I,J,K+1)-WW(I,J,MAX(0,K-1)))/(DZ(K)+DZ(K+1))
+            DWDZ = (WW(I,J,K+1)-WW(I,J,K-1))/(DZ(K)+DZ(K+1))
 
             DTDX = 0.25_EB*RDX(I)*( TMP(I+1,J,K) + TMP(I+1,J,K+1) - TMP(I-1,J,K) - TMP(I-1,J,K+1) )
             DTDY = 0.25_EB*RDY(J)*( TMP(I,J+1,K) + TMP(I,J+1,K+1) - TMP(I,J-1,K) - TMP(I,J-1,K+1) )
             DTDZ = RDZN(K)*(TMP(I,J,K+1)-TMP(I,J,K))
 
-            KDTDZ(I,J,K) = KDTDZ(I,J,K) + C_NL*(DX(I)**2*DWDX*DTDX + DY(J)**2*DWDY*DTDY + DZ(K)**2*DWDZ*DTDZ)
+            DX2 = DX(I)**2
+            DY2 = DY(J)**2
+            DZ2 = DZN(K)**2
 
+            KDTDZ(I,J,K) = KDTDZ(I,J,K) + C_NL*(DX2*DWDX*DTDX + DY2*DWDY*DTDY + DZ2*DWDZ*DTDZ)
+            KZ = C_NL * ( ABS(DX2*DWDX) + ABS(DY2*DWDY) + ABS(DZ2*DWDZ) )
+            D_Z_MAX(I,J,K) = MAX(D_Z_MAX(I,J,K),KZ)
          ENDDO
       ENDDO
    ENDDO
@@ -1776,6 +1482,57 @@ ELSE SCALAR_FLUX_IF
 ENDIF SCALAR_FLUX_IF
 
 END SUBROUTINE TENSOR_DIFFUSIVITY_MODEL
+
+
+REAL(EB) FUNCTION K_SGS_POPE(NU, S2, DELTA) RESULT(K_SGS)
+
+! Pope model spectrum, see Pope, Turbulent Flows, 2000, Sec. 6.5.3, p.232
+
+REAL(EB), INTENT(IN) :: NU        ! EFFECTIVE KINEMATIC VISCOSITY (MOLECULAR + TURBULENT)
+REAL(EB), INTENT(IN) :: S2        ! S_IJ S_IJ
+REAL(EB), INTENT(IN) :: DELTA     ! GRID SPACING
+
+REAL(EB) :: EPS, ETA, KC, XC, F_ETA
+REAL(EB), PARAMETER :: CK=1.5_EB, BETA=5.2_EB, CETA=0.4_EB, FITH=5._EB/3._EB
+
+! ---- GUARD AGAINST LAMINAR REGIONS ----
+IF (S2 <= 0._EB) THEN
+   K_SGS = 0._EB
+   RETURN
+ENDIF
+
+! ---- DISSIPATION ESTIMATE ----
+EPS = 2._EB * NU * S2
+IF (EPS < TWENTY_EPSILON_EB) THEN
+   K_SGS = 0._EB
+   RETURN
+ENDIF
+
+! ---- KOLMOGOROV LENGTH ----
+ETA = (NU**3 / EPS)**0.25_EB
+
+! ---- CUTOFF WAVENUMBER ----
+KC = PI / DELTA
+
+! ---- DIMENSIONLESS CUTOFF ----
+XC = KC * ETA
+
+! ---- DISSIPATION-RANGE SHAPING FUNCTION F_ETA(XC) ----
+F_ETA = EXP( -BETA * ( ( (XC**4 + CETA**4)**0.25_EB ) - CETA ) )
+
+! ---- PIECEWISE APPROXIMATION ----
+IF (XC <= 2._EB) THEN
+  ! INERTIAL + CUTOFF CORRECTION
+  K_SGS = 1.5_EB * CK * (EPS/KC)**TWTH * F_ETA
+ELSE
+  ! EXPONENTIAL TAIL ASYMPTOTIC
+  K_SGS = CK * (EPS*ETA)**TWTH * EXP(BETA*CETA) * XC**(-FITH) * EXP(-BETA*XC) / BETA
+ENDIF
+
+! ---- SAFETY FLOOR ----
+IF (K_SGS < TWO_EPSILON_EB) K_SGS = 0._EB
+
+END FUNCTION K_SGS_POPE
 
 
 SUBROUTINE TAU_WALL_IJ(TAU_IJ,SS,U_VELO,U_SURF,NN,DN,DIVU,MU,RHO,ROUGHNESS)
