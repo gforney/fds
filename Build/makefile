@@ -320,7 +320,7 @@ ompi_intel_osx_openmp_db : setup $(obj_mpi)
 
 ompi_intel_osx_dv : FFLAGS = -warn unused -O1 -g -traceback -no-wrap-margin  $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx_dv : LFLAGSMKL = $(LFLAGSMKL_CUSTOM) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx_dv : LFLAGS = -static-intel
+ompi_intel_osx_dv : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx_dv : FCOMPL = $(COMP_FC)
 ompi_intel_osx_dv : obj = fds_ompi_intel_osx_dv
 ompi_intel_osx_dv : setup $(obj_mpi)
