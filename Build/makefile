@@ -286,7 +286,7 @@ impi_intel_linux_openmp_dv : setup $(obj_mpi)
 
 ompi_intel_osx : FFLAGS = -O2 -no-wrap-margin $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx : LFLAGSMKL = $(LFLAGSMKL_CUSTOM) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx : LFLAGS = -static-intel
+ompi_intel_osx : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx : FCOMPL = $(COMP_FC)
 ompi_intel_osx : obj = fds_ompi_intel_osx
 ompi_intel_osx : setup $(obj_mpi)
@@ -294,7 +294,7 @@ ompi_intel_osx : setup $(obj_mpi)
 
 ompi_intel_osx_openmp : FFLAGS = -O2 -no-wrap-margin $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx_openmp : LFLAGSMKL = $(LFLAGSMKL_CUSTOM_OPENMP) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx_openmp : LFLAGS = -static-intel
+ompi_intel_osx_openmp : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx_openmp : FOPENMPFLAGS = -qopenmp -qopenmp-link static
 ompi_intel_osx_openmp : FCOMPL = $(COMP_FC)
 ompi_intel_osx_openmp : obj = fds_ompi_intel_osx_openmp
@@ -303,7 +303,7 @@ ompi_intel_osx_openmp : setup $(obj_mpi)
 
 ompi_intel_osx_db : FFLAGS = -check all -fp-stack-check -warn unused -O0 -auto -WB -g -traceback -fpe0 -nofltconsistency -stand:f23 -no-wrap-margin $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx_db : LFLAGSMKL = $(LFLAGSMKL_CUSTOM) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx_db : LFLAGS = -static-intel
+ompi_intel_osx_db : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx_db : FCOMPL = $(COMP_FC)
 ompi_intel_osx_db : obj = fds_ompi_intel_osx_db
 ompi_intel_osx_db : setup $(obj_mpi)
@@ -311,7 +311,7 @@ ompi_intel_osx_db : setup $(obj_mpi)
 
 ompi_intel_osx_openmp_db : FFLAGS = -check all -fp-stack-check -warn unused -O0 -auto -WB -g -traceback -fpe0 -nofltconsistency -stand:f23 -no-wrap-margin $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx_openmp_db : LFLAGSMKL = $(LFLAGSMKL_CUSTOM_OPENMP) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx_openmp_db : LFLAGS = -static-intel
+ompi_intel_osx_openmp_db : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx_openmp_db : FOPENMPFLAGS = -qopenmp -qopenmp-link static
 ompi_intel_osx_openmp_db : FCOMPL = $(COMP_FC)
 ompi_intel_osx_openmp_db : obj = fds_ompi_intel_osx_openmp_db
@@ -328,7 +328,7 @@ ompi_intel_osx_dv : setup $(obj_mpi)
 
 ompi_intel_osx_openmp_dv : FFLAGS = -warn unused -O1 -g -traceback -no-wrap-margin  $(GITINFO) $(FFLAGSMKL) $(FFLAGS_HYPRE) $(FFLAGS_SUNDIALS)
 ompi_intel_osx_openmp_dv : LFLAGSMKL = $(LFLAGSMKL_CUSTOM_OPENMP) $(CLT_VERSION) $(LFLAGS_HYPRE) $(LFLAGS_SUNDIALS)
-ompi_intel_osx_openmp_dv : LFLAGS = -static-intel
+ompi_intel_osx_openmp_dv : LFLAGS =  -Wl,-ld_classic -static-intel -framework CoreFoundation -framework IOKit
 ompi_intel_osx_openmp_dv : FOPENMPFLAGS = -qopenmp -qopenmp-link static
 ompi_intel_osx_openmp_dv : FCOMPL = $(COMP_FC)
 ompi_intel_osx_openmp_dv : obj = fds_ompi_intel_osx_openmp_dv
