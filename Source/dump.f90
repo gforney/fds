@@ -8086,7 +8086,8 @@ IND_SELECT: SELECT CASE(IND)
       VEL2  = 0.25_EB*( (U(I,J,K)+U(I-1,J,K))**2 + (V(I,J,K)+V(I,J-1,K))**2 + (W(I,J,K)+W(I,J,K-1))**2 )
       VEL   = SQRT(VEL2)
       VELSR = SQRT(VEL)
-      DV%TMP_L  = DV%TMP_L + DT*VELSR*(TMP_G-DV%TMP_L)/PY%RTI
+      RHS       = (VELSR*(TMP_G-DV%TMP_L))/PY%RTI
+      DV%TMP_L  = DV%TMP_L + DT*RHS
       GAS_PHASE_OUTPUT_RES       = DV%TMP_L - TMPM
 
    CASE(158) ! CHAMBER OBSCURATION
@@ -8179,7 +8180,7 @@ IND_SELECT: SELECT CASE(IND)
          I = SDV%I_PATH(NN)
          J = SDV%J_PATH(NN)
          K = SDV%K_PATH(NN)
-         IF (Q(I,J,K)>(1.E3_EB*DV%SETPOINT)) THEN
+         IF (Q(I,J,K)>(1.E3_EB*DV%QUANTITY_RANGE(1))) THEN
             GAS_PHASE_OUTPUT_RES = GAS_PHASE_OUTPUT_RES + SDV%D_PATH(NN)
          ENDIF
       ENDDO
