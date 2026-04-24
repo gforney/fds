@@ -922,6 +922,7 @@ TYPE SURFACE_TYPE
    REAL(EB) :: TIME_STEP_FACTOR=10._EB                 !< Maximum amount to reduce solid phase conduction time step
    REAL(EB) :: REMESH_RATIO=0.05                       !< Fraction change in wall node DX to trigger a remesh
    REAL(EB) :: FILM_FACTOR=ONTH                        !< Weighting factor for evaluating surface file properties
+   REAL(EB), DIMENSION(3) :: HT3D_WEIGHT=ONTH          !< Directional weighting factor for HT3D mass transport
 
    REAL(EB), ALLOCATABLE, DIMENSION(:) :: DX,RDX,RDXN,X_S,DX_WGT,MF_FRAC,PARTICLE_INSERT_CLOCK
    REAL(EB), ALLOCATABLE, DIMENSION(:,:) :: RHO_0
@@ -1545,7 +1546,7 @@ TYPE RAMPS_TYPE
    INTEGER :: NUMBER_DATA_POINTS,NUMBER_INTERPOLATION_POINTS,DEVC_INDEX=-1,CTRL_INDEX=-1,DEVC_DEP_INDEX=-1,CTRL_DEP_INDEX=-1,&
               RESERVED_RAMP_INDEX=0
    CHARACTER(LABEL_LENGTH) :: ID='null',DEVC_ID='null',CTRL_ID='null',DEVC_ID_DEP='null',CTRL_ID_DEP='null'
-   LOGICAL :: DEP_VAR_UNITS_CONVERTED=.FALSE.,EXTERNAL_FILE=.FALSE.
+   LOGICAL :: DEP_VAR_UNITS_CONVERTED=.FALSE.,EXTERNAL_FILE=.FALSE.,CYCLING=.FALSE.
 END TYPE RAMPS_TYPE
 
 TYPE (RAMPS_TYPE), DIMENSION(:), ALLOCATABLE, TARGET :: RAMPS
@@ -2093,7 +2094,7 @@ TYPE NETWORK_TYPE
    INTEGER, ALLOCATABLE, DIMENSION(:) :: MATRIX_INDEX !< Position of ducts and nodes in solution matrix
 END TYPE NETWORK_TYPE
 
-TYPE(NETWORK_TYPE), DIMENSION(:), ALLOCATABLE, TARGET :: NETWORK
+TYPE(NETWORK_TYPE), TARGET :: NETWORK
 
 TYPE DUCTRUN_TYPE
    INTEGER :: N_DUCTS = 0                              !< Number of ducts in ductrun
