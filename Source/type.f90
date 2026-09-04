@@ -77,6 +77,7 @@ TYPE LAGRANGIAN_PARTICLE_CLASS_TYPE
    REAL(EB) :: HEAT_TRANSFER_COEFFICIENT_SOLID  !< Heat transfer coefficient from solid surface to liquid droplet (W/m2/K)
    REAL(EB) :: DRAG_COEFFICIENT(3)        !< Drag coefficient in 3 coordinate directions
    REAL(EB) :: SURFACE_DIAMETER           !< Effective liquid droplet diameter (m) on a solid surface
+   REAL(EB) :: DRIP_DIAMETER=-1._EB       !< Effective liquid droplet diameter (m) of a droplet dripping off of a surface
    REAL(EB) :: SURFACE_TENSION            !< Surface tension (N/m) of liquid droplets
    REAL(EB) :: BREAKUP_RATIO              !< Ratio of child Sauter mean to parent size in Bag breakup regime
    REAL(EB) :: BREAKUP_GAMMA              !< Rosin-Rammler size distribution parameter for break-up distribution
@@ -336,6 +337,7 @@ TYPE BOUNDARY_PROP1_TYPE
    REAL(EB) :: M_DOT_PART_ACTUAL     !< Mass flux of all particles (kg/m2/s)
    REAL(EB) :: Q_LEAK=0._EB          !< Heat production of leaking gas (W/m3)
    REAL(EB) :: VEL_ERR_NEW=0._EB     !< Velocity mismatch at mesh or solid boundary (m/s)
+   REAL(EB) :: INT_FTP=0._EB         !< Flux time product integral (kJ/m2)^FTP_N
 
    LOGICAL :: BURNAWAY=.FALSE.       !< Indicater if cell can burn away when fuel is exhausted
    LOGICAL :: LAYER_REMOVED=.FALSE.  !< Indicator that at least one layer has been removed during the time step
@@ -922,6 +924,10 @@ TYPE SURFACE_TYPE
    REAL(EB) :: TIME_STEP_FACTOR=10._EB                 !< Maximum amount to reduce solid phase conduction time step
    REAL(EB) :: REMESH_RATIO=0.05                       !< Fraction change in wall node DX to trigger a remesh
    REAL(EB) :: FILM_FACTOR=ONTH                        !< Weighting factor for evaluating surface file properties
+   REAL(EB) :: FTP_CR                                  !< Critical flux time product for ignition (kJ/m2)^FTP_N
+   REAL(EB) :: FTP_N                                   !< Flux time product integral exponent
+   REAL(EB) :: FTP_Q_CR                                !< Critical heat flux for flux time product (kW/m2)
+   REAL(EB) :: FTP_FAC                                 !< Exponent adjustment for kW to W conversion
    REAL(EB), DIMENSION(3) :: HT3D_WEIGHT=ONTH          !< Directional weighting factor for HT3D mass transport
 
    REAL(EB), ALLOCATABLE, DIMENSION(:) :: DX,RDX,RDXN,X_S,DX_WGT,MF_FRAC,PARTICLE_INSERT_CLOCK
@@ -1025,7 +1031,8 @@ END TYPE SURFACE_TYPE
 TYPE (SURFACE_TYPE), DIMENSION(:), ALLOCATABLE, TARGET :: SURFACE
 
 TYPE OMESH_TYPE
-   REAL(EB), ALLOCATABLE, DIMENSION(:,:,:) :: MU,RHO,RHOS,TMP,U,V,W,US,VS,WS,H,HS,FVX,FVY,FVZ,D,DS,KRES,IL_S,IL_R,IL_R_OLD,Q
+   REAL(EB), ALLOCATABLE, DIMENSION(:,:,:) ::&
+         MU,RHO,RHOS,TMP,U,V,W,US,VS,WS,H,HS,FVX,FVY,FVZ,FVX_D,FVY_D,FVZ_D,D,DS,KRES,IL_S,IL_R,IL_R_OLD,Q
    REAL(EB), ALLOCATABLE, DIMENSION(:,:,:,:) :: ZZ,ZZS
    INTEGER, ALLOCATABLE, DIMENSION(:) :: IIO_R,JJO_R,KKO_R,IOR_R,IIO_S,JJO_S,KKO_S,IOR_S
    INTEGER :: I_MIN_R=-10,I_MAX_R=-10,J_MIN_R=-10,J_MAX_R=-10,K_MIN_R=-10,K_MAX_R=-10,NIC_R=0, &
@@ -1534,11 +1541,13 @@ TYPE VENTS_TYPE
                X1_ORIG=0._EB,X2_ORIG=0._EB,Y1_ORIG=0._EB,Y2_ORIG=0._EB,Z1_ORIG=0._EB,Z2_ORIG=0._EB, &
                X0=-9.E6_EB,Y0=-9.E6_EB,Z0=-9.E6_EB,FIRE_SPREAD_RATE,UNDIVIDED_INPUT_AREA=0._EB,INPUT_AREA=0._EB,&
                TMP_EXTERIOR=-1000._EB,DYNAMIC_PRESSURE=0._EB,UVW(3)=-1.E12_EB,RADIUS=-1._EB
-   LOGICAL :: ACTIVATED=.TRUE.,GEOM=.FALSE.,AREA_ADJUST=.TRUE.,DRAW=.TRUE.
+   LOGICAL :: ACTIVATED=.TRUE.,GEOM=.FALSE.,AREA_ADJUST=.TRUE.
    CHARACTER(LABEL_LENGTH) :: DEVC_ID='null',CTRL_ID='null',ID='null'
-   ! turbulent inflow (experimental)
+   ! Divergence-Free Synthetic Eddy Method (DFSEM; Poletto et al. 2013)
    INTEGER :: N_EDDY=0
-   REAL(EB) :: R_IJ(3,3)=0._EB,A_IJ(3,3)=0._EB,SIGMA_IJ(3,3)=0._EB,EDDY_BOX_VOLUME=0._EB, &
+   REAL(EB) :: TURBULENCE_INTENSITY=0._EB !< I=u'/U=v'/U=w'/U; U=local mean at eddy; R~I^2 U^2 via amplitudes
+   REAL(EB) :: R_IJ(3,3)=0._EB,EDDY_BOX_VOLUME=0._EB, &
+              L_EDDY(3)=0._EB,EDDY_C1=0._EB,EDDY_C2=1._EB,DFSEM_ROT(3,3)=0._EB, &
                X_EDDY_MIN=0._EB,X_EDDY_MAX=0._EB, &
                Y_EDDY_MIN=0._EB,Y_EDDY_MAX=0._EB, &
                Z_EDDY_MIN=0._EB,Z_EDDY_MAX=0._EB
@@ -1632,8 +1641,8 @@ END TYPE ISOSURFACE_FILE_TYPE
 TYPE (ISOSURFACE_FILE_TYPE), DIMENSION(:), ALLOCATABLE, TARGET :: ISOSURFACE_FILE
 
 TYPE PROFILE_TYPE
-   REAL(EB) :: X,Y,Z
-   INTEGER  :: IOR=0,WALL_INDEX=0,LP_TAG=0,ORDINAL,MESH,FORMAT_INDEX=1,PART_CLASS_INDEX=-1,QUANTITY_INDEX,MATL_INDEX=0
+   REAL(EB) :: X,Y,Z,DEPTHS(20)
+   INTEGER  :: IOR=0,WALL_INDEX=0,LP_TAG=0,ORDINAL,MESH,FORMAT_INDEX=1,PART_CLASS_INDEX=-1,QUANTITY_INDEX,MATL_INDEX=0,N_DEPTHS=0
    CHARACTER(LABEL_LENGTH) :: ID='null',QUANTITY='TEMPERATURE',INIT_ID='null'
    LOGICAL :: CELL_CENTERED=.FALSE.
 END TYPE PROFILE_TYPE

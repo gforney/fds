@@ -46,18 +46,20 @@ CALL POINT_TO_MESH(NM)
 
 M => MESHES(NM)
 
-! Loop through all SURFace types and find level set cases that need a calculated RoS
+! Loop through all SURFace types and find level set cases that need a calculated RoS.
+! VEG_LSET_FUEL_INDEX: -1=undefined (user ROS_00), 0=custom Rothermel, 1-13=Albini models.
 
 DO SURF_INDEX=0,N_SURF
    SF => SURFACE(SURF_INDEX)
-   IF (SF%VEG_LSET_SPREAD .AND. SF%VEG_LSET_FUEL_INDEX>0) THEN
+   IF (.NOT.SF%VEG_LSET_SPREAD) CYCLE
+   IF (SF%VEG_LSET_FUEL_INDEX>=0) THEN
       SF%VEG_LSET_ROS_00 = ROS_NO_WIND_NO_SLOPE(SF%VEG_LSET_FUEL_INDEX,SURF_INDEX)
+   ELSE
+      SF%BURN_DURATION = SF%VEG_LSET_FIREBASE_TIME
    ENDIF
-   IF (SF%VEG_LSET_SPREAD .AND. SF%VEG_LSET_FUEL_INDEX==0) THEN
-     SF%BURN_DURATION = SF%VEG_LSET_FIREBASE_TIME
-     IF (LEVEL_SET_COUPLED_FIRE) SF%MASS_FLUX(REACTION(1)%FUEL_SMIX_INDEX) = &
-       (1._EB-SF%VEG_LSET_CHAR_FRACTION)*SF%VEG_LSET_SURF_LOAD/SF%VEG_LSET_FIREBASE_TIME
-   ENDIF
+   ! Mass flux of fuel vapor: (1-x_char)*SURF_LOAD/FIREBASE_TIME
+   IF (LEVEL_SET_COUPLED_FIRE) SF%MASS_FLUX(REACTION(1)%FUEL_SMIX_INDEX) = &
+      (1._EB-SF%VEG_LSET_CHAR_FRACTION)*SF%VEG_LSET_SURF_LOAD/SF%VEG_LSET_FIREBASE_TIME
 ENDDO
 
 ! Level set values (Phi). PHI1_LS is the first-order accurate estimate at the next time step.
@@ -312,12 +314,13 @@ END SUBROUTINE INITIALIZE_LEVEL_SET_FIRESPREAD_2
 SUBROUTINE LEVEL_SET_FIRESPREAD(T,DT,NM)
 
 USE MATH_FUNCTIONS, ONLY: EVALUATE_RAMP
+USE PHYSICAL_FUNCTIONS, ONLY: GET_WIND_AT_HEIGHT
 INTEGER, INTENT(IN) :: NM
 REAL(EB), INTENT(IN) :: T,DT
 INTEGER :: IIG,IW,JJG,IC,OUTPUT_INDEX
 INTEGER :: KDUM,KWIND,ICF,IKT
 REAL(EB) :: UMF_TMP,PHX,PHY,MAG_PHI,PHI_S,PHI_W_X,PHI_W_Y,UMF_X,UMF_Y,ROS_MAG,UMF_MAG,&
-            WIND_FACTOR,SIN_THETA,COS_THETA,THETA,ZWIND(2),U_Z(2),V_Z(2),REF_WIND_HEIGHT
+            WIND_FACTOR,ZWIND(2),U_Z(2),V_Z(2),REF_WIND_HEIGHT,WW
 
 T_NOW = CURRENT_TIME()
 
@@ -357,26 +360,7 @@ DO JJG=1,JBAR
 
       ELSE IF_CFD_COUPLED  ! The wind velocity is specified by the user
 
-         ! Evaluate time and height varying profiles, using 6.1 m reference height
-         IF (I_RAMP_DIRECTION_T/=0 .OR. I_RAMP_DIRECTION_Z/=0) THEN
-            IF (I_RAMP_DIRECTION_T==0) THEN
-               THETA=EVALUATE_RAMP(REF_WIND_HEIGHT,I_RAMP_DIRECTION_Z)*DEG2RAD
-            ELSEIF (I_RAMP_DIRECTION_Z==0) THEN
-               THETA=EVALUATE_RAMP(T,I_RAMP_DIRECTION_T)*DEG2RAD
-             ELSE
-               THETA=(EVALUATE_RAMP(REF_WIND_HEIGHT,I_RAMP_DIRECTION_Z)+&
-                  EVALUATE_RAMP(T,I_RAMP_DIRECTION_T))*DEG2RAD
-             ENDIF
-            SIN_THETA = -SIN(THETA)
-            COS_THETA = -COS(THETA)
-         ELSE
-            SIN_THETA = 1._EB
-            COS_THETA = 1._EB
-         ENDIF
-         U_LS(IIG,JJG) = U0*EVALUATE_RAMP(REF_WIND_HEIGHT,I_RAMP_SPEED_Z)*&
-            EVALUATE_RAMP(T,I_RAMP_SPEED_T)*SIN_THETA
-         V_LS(IIG,JJG) = V0*EVALUATE_RAMP(REF_WIND_HEIGHT,I_RAMP_SPEED_Z)*&
-            EVALUATE_RAMP(T,I_RAMP_SPEED_T)*COS_THETA
+         CALL GET_WIND_AT_HEIGHT(T,REF_WIND_HEIGHT,U_LS(IIG,JJG),V_LS(IIG,JJG),WW)
 
       ENDIF IF_CFD_COUPLED
 
@@ -1007,59 +991,55 @@ md3 = SF%VEG_LSET_M100
 mlw = SF%VEG_LSET_MLW
 mlh = SF%VEG_LSET_MLH
 
+! These size-class SAVs (1/m) are the same for all fuel models: 10-h, 100-h, live herbaceous, live woody
+svd2=358._EB ; svd3=98._EB ; svlh=4921._EB ; svlw=4921._EB
+! These thermophysical properties are the same for all fuel models
+st=0.0555_EB ; se=0.01_EB ; heat=18607._EB ; rhop=512._EB
+
 SELECT CASE(ROTHERMEL_FUEL_INDEX)
+   CASE(0)  ! Custom homogeneous fuel from SURF layer properties (assumes single dead fuel class)
+      w0d1=SF%VEG_LSET_SURF_LOAD ; w0d2=0._EB ; w0d3=0._EB ; w0lh=0._EB ; w0lw=0._EB
+      svd1=SF%VEG_LSET_SIGMA*100._EB; mx=0.3_EB ; depth=SF%VEG_LSET_HT 
+      md2=0._EB ; md3=0._EB ; mlh=0._EB ; mlw=0._EB
    CASE(1)  ! 'Short Grass'
-      w0d1=0.1659     ; w0d2=0.        ; w0d3=0.        ; w0lh=0.        ; w0lw=0.     ! dry mass per unit area (kg/m2)
-      svd1=11483.     ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.  ! surface area to volume (1/m)
-      mx=0.12         ; depth=0.3048   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      w0d1=0.1659     ; w0d2=0.        ; w0d3=0.        ; w0lh=0.        ; w0lw=0.
+      svd1=11483.     ; mx=0.12        ; depth=0.3048   
    CASE(2)  ! 'Timbergrass'
       w0d1=0.448      ; w0d2=0.224     ; w0d3=0.112     ; w0lh=0.112     ; w0lw=0.
-      svd1=9842.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.15         ; depth=0.3048   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=9842.      ; mx=0.15        ; depth=0.3048   
    CASE(3)  ! 'Tall Grass'
       w0d1=0.675      ; w0d2=0.        ; w0d3=0.        ; w0lh=0.        ; w0lw=0.
-      svd1=4921.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.25         ; depth=0.762    ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=4921.      ; mx=0.25        ; depth=0.762   
    CASE(4)  ! 'Chaparral'
       w0d1=1.123      ; w0d2=0.899     ; w0d3=0.448     ; w0lh=1.123     ; w0lw=0.
-      svd1=6562.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.20         ; depth=1.829    ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=6562.      ; mx=0.20        ; depth=1.829   
    CASE(5)  ! 'Brush'
       w0d1=0.224      ; w0d2=0.112     ; w0d3=0.        ; w0lh=0.        ; w0lw=0.448
-      svd1=6562.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.20         ; depth=0.6096   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=6562.      ; mx=0.20        ; depth=0.6096  
    CASE(6)  ! 'Dormant Brush'
       w0d1=0.336      ; w0d2=0.56      ; w0d3=0.448     ; w0lh=0.        ; w0lw=0.
-      svd1=5741.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.25         ; depth=0.762    ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=5741.      ; mx=0.25        ; depth=0.762   
    CASE(7)  ! 'Southern Rough'
       w0d1=0.255      ; w0d2=0.419     ; w0d3=0.336     ; w0lh=0.        ; w0lw=0.083
-      svd1=5741.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.40         ; depth=0.762    ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=5741.      ; mx=0.40        ; depth=0.762   
    CASE(8)  ! 'Closed Timber Litter'
       w0d1=0.336      ; w0d2=0.224     ; w0d3=0.56      ; w0lh=0.        ; w0lw=0.
-      svd1=6562.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.30         ; depth=0.06096  ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=6562.      ; mx=0.30        ; depth=0.06096 
    CASE(9)  ! ID='Hardwood Litter'
       w0d1=0.655      ; w0d2=0.092     ; w0d3=0.034     ; w0lh=0.        ; w0lw=0.
-      svd1=8202.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.25         ; depth=0.06096  ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=8202.      ; mx=0.25        ; depth=0.06096 
    CASE(10)  ! 'Timber'
       w0d1=0.675      ; w0d2=0.448     ; w0d3=1.123     ; w0lh=0.        ; w0lw=0.448
-      svd1=6562.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.25         ; depth=0.3048   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=6562.      ; mx=0.25        ; depth=0.3048  
    CASE(11)  ! 'Light Slash'
       w0d1=0.336      ; w0d2=1.011     ; w0d3=1.235     ; w0lh=0.        ; w0lw=0.
-      svd1=4921.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.15         ; depth=0.3048   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=4921.      ; mx=0.15        ; depth=0.3048  
    CASE(12)  ! ID='Medium Slash'
       w0d1=0.899      ; w0d2=3.145     ; w0d3=3.706     ; w0lh=0.        ; w0lw=0.
-      svd1=4921.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.20         ; depth=0.70104  ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=4921.      ; mx=0.20        ; depth=0.70104 
    CASE(13)  ! 'Heavy Slash'
       w0d1=1.571      ; w0d2=5.165     ; w0d3=6.288     ; w0lh=0.        ; w0lw=0.
-      svd1=4921.      ; svd2=358.      ; svd3=98.       ; svlh=4921.     ; svlw=4921.
-      mx=0.25         ; depth=0.9144   ; rhop=512.      ; heat=18607.    ; st=0.0555      ; se=0.01
+      svd1=4921.      ; mx=0.25        ; depth=0.9144  
 END SELECT
 
 IF (SF%VEG_LSET_HT>0._EB) depth = SF%VEG_LSET_HT
@@ -1074,6 +1054,8 @@ IF (SF%VEG_LSET_SURF_LOAD>0._EB) THEN
    w0lh = SF%VEG_LSET_SURF_LOAD/w0*w0lh
    w0lw = SF%VEG_LSET_SURF_LOAD/w0*w0lw
    w0 = (w0d1 + w0d2 + w0d3 + w0lh + w0lw)
+ELSE
+   SF%VEG_LSET_SURF_LOAD = w0
 ENDIF
 
 ! Auxiliary functions
@@ -1153,6 +1135,7 @@ mfdead = hnmd/hnd
 ! Moisture of extinction of living fuel [R(88),Albini,p.89]
 
 mxlive = 2.9*bigW*(1.0 - (mfdead/mx)) - 0.226
+mxlive = MAX(mxlive,mx) ! Ensure mxlive is at least mx
 
 ! Moisture ratios [R(65,66)]
 
@@ -1163,6 +1146,10 @@ else
 endif
 
 rmd = swmd/(swd*mx)
+
+! Limit moisture ratios to 1.0
+rmd = MIN(rmd,1._EB)
+rml = MIN(rml,1._EB)
 
 ! Moisture damping coefficients [R(64)]
 
@@ -1213,10 +1200,6 @@ bigIr = gamma*heat*etas*etaM
 
 IF (SF%VEG_LSET_FIREBASE_TIME<0._EB) SF%VEG_LSET_FIREBASE_TIME = 756._EB/SF%VEG_LSET_SIGMA   ! Albini (Eq. 14)
 SF%BURN_DURATION = SF%VEG_LSET_FIREBASE_TIME
-
-IF (LEVEL_SET_COUPLED_FIRE) THEN
-   SF%MASS_FLUX(REACTION(1)%FUEL_SMIX_INDEX) = bigIr/heat
-ENDIF
 
 ! Rate of spread [R(52)] and the rate of spread in the absence of wind and with no slope.
 
@@ -1278,7 +1261,7 @@ REAL(EB) :: HRRPUVCUT
 LOGICAl :: FIRE_PRESENT
 
 FIRE_PRESENT = .FALSE.
-HRRPUVCUT = MIN(200._EB,20._EB/CHARACTERISTIC_CELL_SIZE)
+HRRPUVCUT = 1.E3_EB*MIN(200._EB,20._EB/CHARACTERISTIC_CELL_SIZE)
 IF (Q(BC%IIG,BC%JJG,BC%KKG)>HRRPUVCUT) FIRE_PRESENT = .TRUE.
 
 IF (STORE_FIRE_ARRIVAL) THEN
